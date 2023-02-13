@@ -144,7 +144,7 @@ function App() {
         onConfirm={() => {
           finalizeDepositAndSendMatic();
           setPageState(PageState.BUYING_MATIC_SENDING_TX);
-          setIsDoneDepositingOpen(false)
+          setIsDoneDepositingOpen(false);
         }}
         onClose={() => setIsDoneDepositingOpen(false)}
       />
@@ -167,9 +167,14 @@ function App() {
         </Typography>
         {advancedView && (
           <Typography variant="subtitle1">
-            Depositing: {machineState?.isDepositInProgress.toString() || "--"}
+            Depositing:{" "}
+            {machineState === null
+              ? "--"
+              : machineState.isDepositInProgress.toString()}
             &nbsp;|&nbsp; Emptying:{" "}
-            {machineState?.isEmptyingInProgress.toString() || "--"}
+            {machineState === null
+              ? "--"
+              : machineState.isEmptyingInProgress.toString()}
             &nbsp;|&nbsp; MATIC Balance:{" "}
             {machineState !== null
               ? prettyNumbers(machineState.maticBalanceOnPolygon)
@@ -195,8 +200,9 @@ function App() {
           <>
             <StackVerticalButton
               disabled={
-                machineState?.isDepositInProgress ||
-                machineState?.isEmptyingInProgress
+                machineState !== null &&
+                (machineState.isDepositInProgress ||
+                  machineState.isEmptyingInProgress)
               }
               variant="contained"
               onClick={() => {
@@ -214,8 +220,9 @@ function App() {
                   variant="contained"
                   color="warning"
                   disabled={
-                    machineState?.isDepositInProgress ||
-                    machineState?.isEmptyingInProgress
+                    machineState !== null &&
+                    (machineState.isDepositInProgress ||
+                      machineState.isEmptyingInProgress)
                   }
                   onClick={() =>
                     fetch(`${BACKEND_URL}/payout/empty`, { method: "POST" })
@@ -279,7 +286,10 @@ function App() {
             </Typography>
             <div style={{ marginTop: "15px" }} />
             <Typography variant="h5">
-              INSERTED CAD: ${machineState?.currentDeposit.toString() || "--"}
+              INSERTED CAD: $
+              {machineState === null
+                ? "--"
+                : machineState.currentDeposit.toString()}
             </Typography>
             <Typography variant="h5">
               MATIC TO RECEIVE: ~
@@ -312,7 +322,8 @@ function App() {
           <>
             <Typography variant="h5">MATIC SENT</Typography>
             <Typography variant="subtitle1">
-              Transaction Hash: {finishDepositResp?.txHash || "--"}
+              Transaction Hash:{" "}
+              {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
             </Typography>
             <Typography variant="subtitle1">
               Deposited CAD:{" "}
@@ -328,7 +339,7 @@ function App() {
             </Typography>
             <QRCode
               value={`https://polygonscan.com/tx/${
-                finishDepositResp?.txHash || "--"
+                finishDepositResp !== null ? finishDepositResp.txHash : "--"
               }`}
             />
           </>
