@@ -263,6 +263,16 @@ function App() {
                   if (!!result) {
                     const txt = result.getText();
 
+                    if (txt.startsWith("ethereum:")) {
+                      try {
+                        const address = txt
+                          .replace("ethereum:", "")
+                          .slice(0, 42);
+                        setQrCodeData(address);
+                        setIsConfirmAddressDialogOpen(true);
+                      } catch (e) {}
+                    }
+
                     // Is an address
                     if (txt.startsWith("0x") && txt.length === 42) {
                       setQrCodeData(txt);
