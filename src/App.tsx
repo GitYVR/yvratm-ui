@@ -261,15 +261,11 @@ function App() {
                 constraints={{ facingMode: "user" }}
                 onResult={(result, error) => {
                   if (!!result) {
-                    const txt = result.getText();
+                    let txt = result.getText();
 
                     if (txt.startsWith("ethereum:")) {
                       try {
-                        const address = txt
-                          .replace("ethereum:", "")
-                          .slice(0, 42);
-                        setQrCodeData(address);
-                        setIsConfirmAddressDialogOpen(true);
+                        txt = txt.replace("ethereum:", "").slice(0, 42);
                       } catch (e) {}
                     }
 
