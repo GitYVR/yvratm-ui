@@ -32,6 +32,7 @@ type MachineState = {
   rateLastUpdatedTimestamp: number;
   ethWalletAddress: string;
   maticBalanceOnPolygon: number;
+  version: string
 };
 
 type FinishDepositResp = {
@@ -98,7 +99,6 @@ function App() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // 'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: JSON.stringify({
         recipient: recipientAddress,
@@ -106,7 +106,6 @@ function App() {
     })
       .then(async (resp) => {
         const respJ = await resp.json();
-        console.log("respJ", respJ);
         setFinishDepositResp(respJ as FinishDepositResp);
         setPageState(PageState.BUYING_MATIC_TX_RECEIPT);
       })
@@ -167,19 +166,23 @@ function App() {
         </Typography>
         {advancedView && (
           <Typography variant="subtitle1">
-            Depositing:{" "}
+            Version:{" "}
+            {machineState === null
+              ? "--"
+              : machineState.version}
+            &nbsp;|&nbsp;Depositing:{" "}
             {machineState === null
               ? "--"
               : machineState.isDepositInProgress.toString()}
-            &nbsp;|&nbsp; Emptying:{" "}
+            &nbsp;|&nbsp;Emptying:{" "}
             {machineState === null
               ? "--"
               : machineState.isEmptyingInProgress.toString()}
-            &nbsp;|&nbsp; MATIC Balance:{" "}
+            &nbsp;|&nbsp;MATIC Balance:{" "}
             {machineState !== null
               ? prettyNumbers(machineState.maticBalanceOnPolygon)
               : "--"}
-            &nbsp;|&nbsp; Last Updated:{" "}
+            &nbsp;|&nbsp;Last Updated:{" "}
             {machineState === null
               ? "--"
               : new Date(machineState.rateLastUpdatedTimestamp).toDateString() +
