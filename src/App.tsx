@@ -69,7 +69,7 @@ function App() {
   const cancelAndReturnHome = useCallback(() => {
     if (pageState === PageState.BUYING_MATIC_INSERT_BILL) {
       fetch(`${BACKEND_URL}/deposit/cancel`, { method: "POST" }).catch((e) => {
-        alert(`Error occured while cancelling: ${e}`);
+        alert(`Error occured while cancelling: ${e || 'unknown'}`);
       });
     }
 
@@ -83,7 +83,7 @@ function App() {
     setRecipientAddress(address);
     setPageState(PageState.BUYING_MATIC_INSERT_BILL);
     fetch(`${BACKEND_URL}/deposit/start`, { method: "POST" }).catch((e) => {
-      alert(`Error occured ${e}`);
+      alert(`Error occured ${e || 'unknown'}`);
     });
   }, []);
 
@@ -111,7 +111,7 @@ function App() {
         setPageState(PageState.BUYING_MATIC_TX_RECEIPT);
       })
       .catch((e) => {
-        alert(`An error occurred ${e.toString()}`);
+        alert(`An error occurred ${e || 'unknown'}`);
       });
   }, [recipientAddress]);
 
