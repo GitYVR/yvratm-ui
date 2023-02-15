@@ -32,7 +32,7 @@ type MachineState = {
   rateLastUpdatedTimestamp: number;
   ethWalletAddress: string;
   maticBalanceOnPolygon: number;
-  version: string
+  version: string;
 };
 
 type FinishDepositResp = {
@@ -70,7 +70,7 @@ function App() {
   const cancelAndReturnHome = useCallback(() => {
     if (pageState === PageState.BUYING_MATIC_INSERT_BILL) {
       fetch(`${BACKEND_URL}/deposit/cancel`, { method: "POST" }).catch((e) => {
-        alert(`Error occured while cancelling: ${e || 'unknown'}`);
+        alert(`Error occured while cancelling: ${e || "unknown"}`);
       });
     }
 
@@ -84,7 +84,7 @@ function App() {
     setRecipientAddress(address);
     setPageState(PageState.BUYING_MATIC_INSERT_BILL);
     fetch(`${BACKEND_URL}/deposit/start`, { method: "POST" }).catch((e) => {
-      alert(`Error occured ${e || 'unknown'}`);
+      alert(`Error occured ${e || "unknown"}`);
     });
   }, []);
 
@@ -110,7 +110,7 @@ function App() {
         setPageState(PageState.BUYING_MATIC_TX_RECEIPT);
       })
       .catch((e) => {
-        alert(`An error occurred ${e || 'unknown'}`);
+        alert(`An error occurred ${e || "unknown"}`);
       });
   }, [recipientAddress]);
 
@@ -166,10 +166,7 @@ function App() {
         </Typography>
         {advancedView && (
           <Typography variant="subtitle1">
-            Version:{" "}
-            {machineState === null
-              ? "--"
-              : machineState.version}
+            Version: {machineState === null ? "--" : machineState.version}
             &nbsp;|&nbsp;Depositing:{" "}
             {machineState === null
               ? "--"
@@ -203,9 +200,10 @@ function App() {
           <>
             <StackVerticalButton
               disabled={
-                machineState !== null &&
-                (machineState.isDepositInProgress ||
-                  machineState.isEmptyingInProgress)
+                (machineState !== null &&
+                  (machineState.isDepositInProgress ||
+                    machineState.isEmptyingInProgress)) ||
+                machineState === null
               }
               variant="contained"
               onClick={() => {
