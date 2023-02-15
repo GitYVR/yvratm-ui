@@ -1,4 +1,6 @@
 export const prettyNumbers = (a: number, decimals = 6) => {
+  if (a === null || a === undefined) return "--";
+
   const aStr = a.toString();
 
   if (aStr.includes(".")) {
