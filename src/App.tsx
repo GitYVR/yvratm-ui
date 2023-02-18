@@ -12,6 +12,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import ThumbUpOffAltIcon from "@mui/icons-material/ThumbUpOffAlt";
 import AirIcon from "@mui/icons-material/Air";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import GroupsIcon from "@mui/icons-material/Groups";
 
 const StackVerticalButton = styled(Button)({
   display: "flex",
@@ -46,6 +47,8 @@ const BACKEND_URL = "http://localhost:3000";
 enum PageState {
   MAIN,
 
+  CHECK_MEMBERSHIP,
+
   BUYING_MATIC_SCAN_ADDRESS,
   BUYING_MATIC_INSERT_BILL,
   BUYING_MATIC_SENDING_TX,
@@ -66,6 +69,18 @@ function App() {
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isConfirmAddressDialogOpen, setIsConfirmAddressDialogOpen] =
     useState(false);
+
+  const readRFIDInput = (d: Document, x: globalThis.KeyboardEvent) => {
+    console.log("x", d, x);
+  };
+
+  useEffect(() => {
+    if (pageState === PageState.CHECK_MEMBERSHIP) {
+      document.addEventListener("keyup", readRFIDInput as any);
+    } else {
+      document.removeEventListener("keyup", readRFIDInput as any);
+    }
+  }, [pageState]);
 
   const cancelAndReturnHome = useCallback(() => {
     if (pageState === PageState.BUYING_MATIC_INSERT_BILL) {
@@ -164,6 +179,7 @@ function App() {
             ? prettyNumbers(machineState.cadPerMatic)
             : "--"}
         </Typography>
+        <br />
         {advancedView && (
           <Typography variant="subtitle1">
             Version: {machineState === null ? "--" : machineState.version}
@@ -214,6 +230,16 @@ function App() {
               BUY MATIC <br />
               WITH CAD
             </StackVerticalButton>
+            &nbsp;&nbsp;
+            <StackVerticalButton
+              variant="contained"
+              onClick={() => {
+                setPageState(PageState.CHECK_MEMBERSHIP);
+              }}
+            >
+              <GroupsIcon style={{ fontSize: "50px" }} />
+              MEMBERSHIP
+            </StackVerticalButton>
             {advancedView && (
               <>
                 &nbsp;&nbsp;
@@ -249,6 +275,7 @@ function App() {
             )}
           </>
         )}
+        {pageState === PageState.CHECK_MEMBERSHIP && <>Please scan your FOB</>}
         {pageState === PageState.BUYING_MATIC_SCAN_ADDRESS && (
           <>
             <div style={{ width: "400px", margin: "auto" }}>
