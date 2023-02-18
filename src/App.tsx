@@ -1,5 +1,11 @@
 import { Grid, Button, Typography, CircularProgress } from "@mui/material";
-import { useCallback, useEffect, useState } from "react";
+import {
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { QrReader } from "react-qr-reader";
 import { styled } from "@mui/system";
 import { DialogConfirm } from "./components/DialogConfirm";
@@ -48,6 +54,7 @@ enum PageState {
   MAIN,
 
   CHECK_MEMBERSHIP,
+  CHECK_MEMBERSHIP_SCANNED_FOB,
 
   BUYING_MATIC_SCAN_ADDRESS,
   BUYING_MATIC_INSERT_BILL,
@@ -56,6 +63,7 @@ enum PageState {
 }
 
 function App() {
+  const [keyFobId, setKeyFobId] = useState("");
   const [advancedView, setAdvanedView] = useState(false);
   const [machineState, setMachineState] = useState<null | MachineState>(null);
   const [pageState, setPageState] = useState<PageState>(PageState.MAIN);
@@ -70,17 +78,19 @@ function App() {
   const [isConfirmAddressDialogOpen, setIsConfirmAddressDialogOpen] =
     useState(false);
 
-  const readRFIDInput = (d: Document, x: globalThis.KeyboardEvent) => {
-    console.log("x", d, x);
+  // Yes very dirty but whatever
+  let keysLogged = "";
+  const keyPressListener = (x: KeyboardEvent) => {
+    if (x.key.toLowerCase() !== "enter") {
+      keysLogged = keysLogged + x.key;
+    } else {
+      setKeyFobId(keysLogged);
+      keysLogged = "";
+      setPageState(PageState.CHECK_MEMBERSHIP_SCANNED_FOB);
+    }
   };
 
-  useEffect(() => {
-    if (pageState === PageState.CHECK_MEMBERSHIP) {
-      document.addEventListener("keyup", readRFIDInput as any);
-    } else {
-      document.removeEventListener("keyup", readRFIDInput as any);
-    }
-  }, [pageState]);
+  const handleRFIDKeyDown = useMemo(() => keyPressListener, []);
 
   const cancelAndReturnHome = useCallback(() => {
     if (pageState === PageState.BUYING_MATIC_INSERT_BILL) {
@@ -130,9 +140,17 @@ function App() {
   }, [recipientAddress]);
 
   useEffect(() => {
+    if (pageState === PageState.CHECK_MEMBERSHIP) {
+      document.addEventListener("keydown", handleRFIDKeyDown as any);
+    } else {
+      document.removeEventListener("keydown", handleRFIDKeyDown as any);
+    }
+  }, [pageState, handleRFIDKeyDown]);
+
+  useEffect(() => {
     if (machineState !== null) return;
     getMachineState();
-    setInterval(getMachineState, 1000);
+    setInterval(getMachineState, 2500);
   }, [getMachineState, machineState]);
 
   return (
@@ -276,6 +294,11 @@ function App() {
           </>
         )}
         {pageState === PageState.CHECK_MEMBERSHIP && <>Please scan your FOB</>}
+        {pageState === PageState.CHECK_MEMBERSHIP_SCANNED_FOB && (
+          <>
+            <Typography variant="h5">FOB ID: {keyFobId}</Typography>
+          </>
+        )}
         {pageState === PageState.BUYING_MATIC_SCAN_ADDRESS && (
           <>
             <div style={{ width: "400px", margin: "auto" }}>
