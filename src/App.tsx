@@ -452,6 +452,7 @@ function App() {
         {pageState === PageState.CHECK_MEMBERSHIP_EXTENDING && (
           <>
             <Typography variant="h4">Updating membership</Typography>
+            <CircularProgress />
           </>
         )}
         {pageState === PageState.CHECK_MEMBERSHIP_EXTENDED_MEMBERSHIP && (
