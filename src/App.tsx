@@ -431,13 +431,15 @@ function App() {
               </Typography>
               <Typography variant="h5">
                 New Expiry:{" "}
-                {new Date(
-                  ((fobUser.expire_timestamp < epochNowInSeconds()
-                    ? epochNowInSeconds()
-                    : fobUser.expire_timestamp) +
-                    machineState.curMembershipTimeExtend) *
-                    1000
-                ).toLocaleString()}
+                {machineState.currentDeposit <= 0
+                  ? fobUser.expire_timestamp
+                  : new Date(
+                      ((fobUser.expire_timestamp < epochNowInSeconds()
+                        ? epochNowInSeconds()
+                        : fobUser.expire_timestamp) +
+                        machineState.curMembershipTimeExtend) *
+                        1000
+                    ).toLocaleString()}
               </Typography>
               <br />
               <Button
