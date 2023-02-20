@@ -432,7 +432,7 @@ function App() {
               <Typography variant="h5">
                 New Expiry:{" "}
                 {machineState.currentDeposit <= 0
-                  ? fobUser.expire_timestamp
+                  ? new Date(fobUser.expire_timestamp * 1000).toLocaleString()
                   : new Date(
                       ((fobUser.expire_timestamp < epochNowInSeconds()
                         ? epochNowInSeconds()
