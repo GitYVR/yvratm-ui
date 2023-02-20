@@ -11,7 +11,7 @@ import { styled } from "@mui/system";
 import { DialogConfirm } from "./components/DialogConfirm";
 import { ViewFinder } from "./components/ViewFinder";
 import QRCode from "react-qr-code";
-import { prettyNumbers } from "./common/utils";
+import { epochNowInSeconds, prettyNumbers } from "./common/utils";
 
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CancelIcon from "@mui/icons-material/Cancel";
@@ -432,7 +432,9 @@ function App() {
               <Typography variant="h5">
                 New Expiry:{" "}
                 {new Date(
-                  (fobUser.expire_timestamp +
+                  ((fobUser.expire_timestamp < epochNowInSeconds()
+                    ? epochNowInSeconds()
+                    : fobUser.expire_timestamp) +
                     machineState.curMembershipTimeExtend) *
                     1000
                 ).toLocaleString()}

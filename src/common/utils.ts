@@ -10,3 +10,7 @@ export const prettyNumbers = (a: number, decimals = 6) => {
 
   return a.toString();
 };
+
+export const epochNowInSeconds = () => {
+  return new Date().getTime() / 1000
+}
