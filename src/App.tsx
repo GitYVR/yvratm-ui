@@ -14,6 +14,8 @@ import QRCode from "react-qr-code";
 import { epochNowInSeconds, prettyNumbers } from "./common/utils";
 
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import CurrencyBitcoinIcon from "@mui/icons-material/CurrencyBitcoin";
+import HexagonIcon from "@mui/icons-material/Hexagon";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ThumbUpOffAltIcon from "@mui/icons-material/ThumbUpOffAlt";
 import AirIcon from "@mui/icons-material/Air";
@@ -67,6 +69,7 @@ enum PageState {
   CHECK_MEMBERSHIP_EXTENDING,
   CHECK_MEMBERSHIP_EXTENDED_MEMBERSHIP,
 
+  BUYING_BITCOIN_SCAN_ADDRESS,
   BUYING_MATIC_SCAN_ADDRESS,
   BUYING_MATIC_INSERT_BILL,
   BUYING_MATIC_SENDING_TX,
@@ -299,20 +302,37 @@ function App() {
         {pageState === PageState.MAIN && (
           <>
             <StackVerticalButton
-              disabled={
-                (machineState !== null &&
-                  (machineState.isDepositInProgress ||
-                    machineState.isEmptyingInProgress)) ||
-                machineState === null
+              disabled={undefined
+                // (machineState !== null &&
+                //   (machineState.isDepositInProgress ||
+                //     machineState.isEmptyingInProgress)) ||
+                // machineState === null
               }
               variant="contained"
+        color="error"
+              onClick={() => {
+                setPageState(PageState.BUYING_BITCOIN_SCAN_ADDRESS);
+              }}
+            >
+              <CurrencyBitcoinIcon style={{ fontSize: "50px" }} />
+              BITCOIN <br />
+            </StackVerticalButton>
+            &nbsp;&nbsp;
+            <StackVerticalButton
+              disabled={undefined
+                // (machineState !== null &&
+                //   (machineState.isDepositInProgress ||
+                //     machineState.isEmptyingInProgress)) ||
+                // machineState === null
+              }
+              variant="contained"
+          color="secondary"
               onClick={() => {
                 setPageState(PageState.BUYING_MATIC_SCAN_ADDRESS);
               }}
             >
-              <AttachMoneyIcon style={{ fontSize: "50px" }} />
-              BUY MATIC <br />
-              WITH CAD
+              <HexagonIcon style={{ fontSize: "50px" }} />
+              MATIC <br />
             </StackVerticalButton>
             &nbsp;&nbsp;
             <StackVerticalButton
@@ -474,6 +494,11 @@ function App() {
                   </Typography>
                 </>
               )}
+          </>
+        )}
+        {pageState === PageState.BUYING_BITCOIN_SCAN_ADDRESS && (
+          <>
+          Coming soon
           </>
         )}
         {pageState === PageState.BUYING_MATIC_SCAN_ADDRESS && (

@@ -5,7 +5,7 @@ import App from "./App";
 import reportWebVitals from "./reportWebVitals";
 
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { blue } from "@mui/material/colors";
+import { blue, orange, purple } from "@mui/material/colors";
 
 import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
@@ -17,6 +17,8 @@ const darkTheme = createTheme({
   palette: {
     mode: "dark",
     primary: blue,
+    secondary: purple,
+    error: orange
   },
   typography: {
     fontFamily: ["roboto"].join(","),
