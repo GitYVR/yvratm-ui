@@ -37,6 +37,8 @@ type MachineState = {
   numOfNotes: number;
   currentDeposit: number;
   cadPerMatic: number;
+  cadPerBtc: number;
+  currentBtcToRecv: number;
   currentMaticToRecv: number;
   currency: string;
   membershipCadPer30Days: number;
@@ -69,11 +71,15 @@ enum PageState {
   CHECK_MEMBERSHIP_EXTENDING,
   CHECK_MEMBERSHIP_EXTENDED_MEMBERSHIP,
 
-  BUYING_BITCOIN_SCAN_ADDRESS,
   BUYING_MATIC_SCAN_ADDRESS,
   BUYING_MATIC_INSERT_BILL,
   BUYING_MATIC_SENDING_TX,
   BUYING_MATIC_TX_RECEIPT,
+
+  BUYING_BITCOIN_SCAN_ADDRESS,
+  BUYING_BITCOIN_INSERT_BILL,
+  BUYING_BITCOIN_SENDING_TX,
+  BUYING_BITCOIN_TX_RECEIPT,
 }
 
 function App() {
@@ -89,6 +95,7 @@ function App() {
   const [qrCodeData, setQrCodeData] = useState<string>("");
 
   const [isDoneDepositingOpen, setIsDoneDepositingOpen] = useState(false);
+  const [isDoneDepositingBtcOpen, setIsDoneDepositingBtcOpen] = useState(false);
   const [isDoneDepositingMembershipOpen, setIsDoneDepositingMembershipOpen] =
     useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
@@ -130,7 +137,13 @@ function App() {
   const confirmUserAddressAndProceed = useCallback((address: string) => {
     setIsConfirmAddressDialogOpen(false);
     setRecipientAddress(address);
-    setPageState(PageState.BUYING_MATIC_INSERT_BILL);
+
+    if (address.includes('@')) {
+      setPageState(PageState.BUYING_BITCOIN_INSERT_BILL);
+    } else {
+      setPageState(PageState.BUYING_MATIC_INSERT_BILL);
+    }
+
     fetch(`${ATM_BACKEND_URL}/deposit/start`, { method: "POST" }).catch((e) => {
       alert(`Error occured ${e || "unknown"}`);
     });
@@ -163,6 +176,28 @@ function App() {
         const respJ = await resp.json();
         setFinishDepositResp(respJ as FinishDepositResp);
         setPageState(PageState.BUYING_MATIC_TX_RECEIPT);
+      })
+      .catch((e) => {
+        alert(`An error occurred ${e || "unknown"}`);
+      });
+  }, [recipientAddress]);
+
+  const finalizeDepositAndSendBtc = useCallback(async () => {
+    setPageState(PageState.BUYING_BITCOIN_SENDING_TX);
+    fetch(`${ATM_BACKEND_URL}/deposit/end/bitcoin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: recipientAddress,
+      }),
+    })
+      .then(async (resp) => {
+        console.log("GOT RESP", resp);
+        const respJ = await resp.json();
+        setFinishDepositResp(respJ as FinishDepositResp);
+        setPageState(PageState.BUYING_BITCOIN_TX_RECEIPT);
       })
       .catch((e) => {
         alert(`An error occurred ${e || "unknown"}`);
@@ -233,10 +268,21 @@ function App() {
         isOpen={isDoneDepositingOpen}
         onConfirm={() => {
           finalizeDepositAndSendMatic();
-          setPageState(PageState.CHECK_MEMBERSHIP_EXTENDING);
+          setPageState(PageState.BUYING_MATIC_SENDING_TX);
           setIsDoneDepositingOpen(false);
         }}
         onClose={() => setIsDoneDepositingOpen(false)}
+      />
+      <DialogConfirm
+        title="Confirm Done Depositing"
+        bodyText={`Done depositing?`}
+        isOpen={isDoneDepositingBtcOpen}
+        onConfirm={() => {
+          finalizeDepositAndSendBtc();
+          setPageState(PageState.BUYING_BITCOIN_SENDING_TX);
+          setIsDoneDepositingBtcOpen(false);
+        }}
+        onClose={() => setIsDoneDepositingBtcOpen(false)}
       />
       <DialogConfirm
         title="Confirm Done Depositing"
@@ -261,6 +307,11 @@ function App() {
           YVR ON-BOARDOOOOR
         </Typography>
         <Typography variant="subtitle2">
+          1 BTC = CAD $
+          {machineState !== null
+            ? prettyNumbers(machineState.cadPerBtc)
+            : "--"}
+<br />
           1 MATIC = CAD $
           {machineState !== null
             ? prettyNumbers(machineState.cadPerMatic)
@@ -498,7 +549,33 @@ function App() {
         )}
         {pageState === PageState.BUYING_BITCOIN_SCAN_ADDRESS && (
           <>
-          Coming soon
+            <div style={{ width: "400px", margin: "auto" }}>
+              <Typography variant="h6">
+                SCANNING LIGHTNING ADDRESS QR CODE
+              </Typography>
+              <QrReader
+                ViewFinder={ViewFinder}
+                videoId="video"
+                scanDelay={500}
+                constraints={{ facingMode: "user" }}
+                onResult={(result, error) => {
+                  if (!!result) {
+                    let txt = result.getText();
+
+                    // Is an address
+                    if (txt.includes('@')) {
+                      setQrCodeData(txt);
+                      setIsConfirmAddressDialogOpen(true);
+                    }
+                  }
+
+                  if (!!error) {
+                    console.info("qr-code", error);
+                  }
+                }}
+              />
+          <div>Don't have a QR? Type a lightning address into the coinos.io/send page and press the QR button to generate a QR for any address</div>
+            </div>
           </>
         )}
         {pageState === PageState.BUYING_MATIC_SCAN_ADDRESS && (
@@ -535,6 +612,38 @@ function App() {
                 }}
               />
             </div>
+          </>
+        )}
+        {pageState === PageState.BUYING_BITCOIN_INSERT_BILL && (
+          <>
+            <Typography variant="h5">FEED CAD BILLS INTO MACHINE</Typography>
+            <Typography variant="subtitle1">
+              Recipient address: {recipientAddress || "--"}
+            </Typography>
+            <div style={{ marginTop: "15px" }} />
+            <Typography variant="h5">
+              INSERTED CAD: $
+              {machineState === null
+                ? "--"
+                : machineState.currentDeposit.toString()}
+            </Typography>
+            <Typography variant="h5">
+              BITCOIN TO RECEIVE: ~
+              {machineState !== null
+                ? prettyNumbers(machineState.currentBtcToRecv)
+                : "--"}
+            </Typography>
+            <StackVerticalButton
+              style={{ marginTop: "20px", height: "125px" }}
+              variant="contained"
+              onClick={() => {
+                setIsDoneDepositingBtcOpen(true);
+              }}
+              color="success"
+            >
+              <ThumbUpOffAltIcon style={{ fontSize: "50px" }} />
+              DONE
+            </StackVerticalButton>
           </>
         )}
         {pageState === PageState.BUYING_MATIC_INSERT_BILL && (
@@ -575,6 +684,30 @@ function App() {
               CONFIRMING DEPOSIT AND SENDING MATIC...
             </Typography>
             <CircularProgress />
+          </>
+        )}
+        {pageState === PageState.BUYING_BITCOIN_TX_RECEIPT && (
+          <>
+          <div style={{maxWidth: "400px", wordBreak: "break-all"}}>
+            <Typography variant="h5">BITCOIN SENT</Typography>
+            <Typography variant="subtitle1">
+              Transaction Hash:{" "}
+              {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
+          <br /><br />
+            </Typography>
+            <Typography variant="subtitle1">
+              Deposited CAD:{" "}
+              {finishDepositResp !== null
+                ? prettyNumbers(finishDepositResp.totalDepositCAD)
+                : "--"}
+            </Typography>
+            <Typography variant="subtitle1">
+              Received BITCOIN:{" "}
+              {finishDepositResp !== null
+                ? prettyNumbers(finishDepositResp.totalMaticToRecv)
+                : "--"}
+            </Typography>
+          </div>
           </>
         )}
         {pageState === PageState.BUYING_MATIC_TX_RECEIPT && (
