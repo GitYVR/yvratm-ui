@@ -36,23 +36,25 @@ type MachineState = {
   isDepositInProgress: boolean;
   numOfNotes: number;
   currentDeposit: number;
-  cadPerMatic: number;
+  cadPerPol: number;
   cadPerBtc: number;
   currentBtcToRecv: number;
-  currentMaticToRecv: number;
+  currentL2EthToRecv: number;
+  currentPolToRecv: number;
   currency: string;
   membershipCadPer30Days: number;
   curMembershipTimeExtend: number;
   rateLastUpdatedTimestamp: number;
   ethWalletAddress: string;
-  maticBalanceOnPolygon: number;
+  polBalanceOnPolygon: number;
   version: string;
 };
 
 type FinishDepositResp = {
   txHash: string;
-  totalMaticToRecv: number;
+  totalCryptoToRecv: number;
   totalDepositCAD: number;
+  explorerTx: string;
 };
 
 type FobUserState = {
@@ -71,15 +73,21 @@ enum PageState {
   CHECK_MEMBERSHIP_EXTENDING,
   CHECK_MEMBERSHIP_EXTENDED_MEMBERSHIP,
 
-  BUYING_MATIC_SCAN_ADDRESS,
-  BUYING_MATIC_INSERT_BILL,
-  BUYING_MATIC_SENDING_TX,
-  BUYING_MATIC_TX_RECEIPT,
+  BUYING_POL_SCAN_ADDRESS,
+  BUYING_POL_INSERT_BILL,
+  BUYING_POL_SENDING_TX,
+  BUYING_POL_TX_RECEIPT,
 
   BUYING_BITCOIN_SCAN_ADDRESS,
   BUYING_BITCOIN_INSERT_BILL,
   BUYING_BITCOIN_SENDING_TX,
   BUYING_BITCOIN_TX_RECEIPT,
+
+  // arb, op, base
+  BUYING_L2_ETH_INSERT_BILL,
+  BUYING_L2_ETH_SCAN_ADDRESS,
+  BUYING_L2_ETH_SENDING_TX,
+  BUYING_L2_ETH_TX_RECEIPT
 }
 
 function App() {
@@ -88,6 +96,9 @@ function App() {
   const [advancedView, setAdvanedView] = useState(false);
   const [machineState, setMachineState] = useState<null | MachineState>(null);
   const [pageState, setPageState] = useState<PageState>(PageState.MAIN);
+
+  // ad-hoc: shit I know, to be removed during refactoring
+  const [nextPageState, setNextPageState] = useState<{ state: PageState | null, data?: any }>({ state: null });
 
   const [finishDepositResp, setFinishDepositResp] =
     useState<null | FinishDepositResp>(null);
@@ -99,8 +110,9 @@ function App() {
   const [isDoneDepositingMembershipOpen, setIsDoneDepositingMembershipOpen] =
     useState(false);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+
   const [isConfirmAddressDialogOpen, setIsConfirmAddressDialogOpen] =
-    useState(false);
+    useState<boolean>(false);
 
   // Yes very dirty but whatever
   let keysLogged = "";
@@ -119,8 +131,10 @@ function App() {
 
   const cancelAndReturnHome = useCallback(() => {
     if (
-      pageState === PageState.BUYING_MATIC_INSERT_BILL ||
-      pageState === PageState.CHECK_MEMBERSHIP_INSERT_BILL
+      pageState === PageState.BUYING_POL_INSERT_BILL ||
+      pageState === PageState.CHECK_MEMBERSHIP_INSERT_BILL ||
+      pageState === PageState.BUYING_L2_ETH_INSERT_BILL ||
+      pageState === PageState.BUYING_BITCOIN_INSERT_BILL
     ) {
       fetch(`${ATM_BACKEND_URL}/deposit/cancel`, { method: "POST" }).catch(
         (e) => {
@@ -131,6 +145,7 @@ function App() {
 
     setRecipientAddress(null);
     setPageState(PageState.MAIN);
+    setNextPageState({ state: null });
     setIsReturnDialogOpen(false);
   }, [pageState]);
 
@@ -138,19 +153,25 @@ function App() {
     setIsConfirmAddressDialogOpen(false);
     setRecipientAddress(address);
 
-    if (address.includes('@')) {
+    if (nextPageState.state) {
+      setPageState(nextPageState.state);
+      setNextPageState({ state: PageState.BUYING_L2_ETH_SENDING_TX, data: nextPageState.data });
+    } else if (address.includes('@')) {
       setPageState(PageState.BUYING_BITCOIN_INSERT_BILL);
     } else {
-      setPageState(PageState.BUYING_MATIC_INSERT_BILL);
+      setPageState(PageState.BUYING_POL_INSERT_BILL);
     }
 
     fetch(`${ATM_BACKEND_URL}/deposit/start`, { method: "POST" }).catch((e) => {
       alert(`Error occured ${e || "unknown"}`);
     });
-  }, []);
+  }, [nextPageState]);
 
   const getMachineState = useCallback(async () => {
-    const resp = await fetch(`${ATM_BACKEND_URL}/stats`).then((x) => x.json());
+    const resp = await fetch(`${ATM_BACKEND_URL}/stats`).then((x) => {
+      return x.json()
+    }
+    );
     setMachineState(resp as MachineState);
   }, []);
 
@@ -161,9 +182,9 @@ function App() {
     setFobUser(resp as FobUserState);
   }, [setFobUser, keyFobId]);
 
-  const finalizeDepositAndSendMatic = useCallback(async () => {
-    setPageState(PageState.BUYING_MATIC_SENDING_TX);
-    fetch(`${ATM_BACKEND_URL}/deposit/end/matic`, {
+  const finalizeDepositAndSendPol = useCallback(async () => {
+    setPageState(PageState.BUYING_POL_SENDING_TX);
+    fetch(`${ATM_BACKEND_URL}/deposit/end/polygon`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -175,7 +196,7 @@ function App() {
       .then(async (resp) => {
         const respJ = await resp.json();
         setFinishDepositResp(respJ as FinishDepositResp);
-        setPageState(PageState.BUYING_MATIC_TX_RECEIPT);
+        setPageState(PageState.BUYING_POL_TX_RECEIPT);
       })
       .catch((e) => {
         alert(`An error occurred ${e || "unknown"}`);
@@ -203,6 +224,28 @@ function App() {
         alert(`An error occurred ${e || "unknown"}`);
       });
   }, [recipientAddress]);
+
+  const finalizeDepositAndSendL2Eth = useCallback(async (recipientAddress: string, endDepositEndpoint: string) => {
+    setPageState(PageState.BUYING_L2_ETH_SENDING_TX);
+
+    fetch(endDepositEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        recipient: recipientAddress,
+      }),
+    })
+      .then(async (resp) => {
+        const respJ = await resp.json();
+        setFinishDepositResp(respJ as FinishDepositResp);
+        setPageState(PageState.BUYING_L2_ETH_TX_RECEIPT);
+      })
+      .catch((e) => {
+        alert(`An error occurred ${e || "unknown"}`);
+      });
+  }, []);
 
   const finalizeDepositAndUpdateMembership = useCallback(async () => {
     setPageState(PageState.CHECK_MEMBERSHIP_EXTENDING);
@@ -267,8 +310,13 @@ function App() {
         bodyText={`Done depositing?`}
         isOpen={isDoneDepositingOpen}
         onConfirm={() => {
-          finalizeDepositAndSendMatic();
-          setPageState(PageState.BUYING_MATIC_SENDING_TX);
+          if (nextPageState?.data?.endDeposit) {
+            nextPageState.data.endDeposit(recipientAddress, nextPageState.data.endDepositEndpoint);
+          } else {
+            finalizeDepositAndSendPol();
+            // todo: remove later if works
+            // setPageState(PageState.BUYING_POL_SENDING_TX);
+          }
           setIsDoneDepositingOpen(false);
         }}
         onClose={() => setIsDoneDepositingOpen(false)}
@@ -311,10 +359,10 @@ function App() {
           {machineState !== null
             ? prettyNumbers(machineState.cadPerBtc)
             : "--"}
-<br />
-          1 MATIC = CAD $
+          <br />
+          1 POL = CAD $
           {machineState !== null
-            ? prettyNumbers(machineState.cadPerMatic)
+            ? prettyNumbers(machineState.cadPerPol)
             : "--"}
         </Typography>
         <br />
@@ -329,16 +377,16 @@ function App() {
             {machineState === null
               ? "--"
               : machineState.isEmptyingInProgress.toString()}
-            &nbsp;|&nbsp;MATIC Balance:{" "}
+            &nbsp;|&nbsp;POL Balance:{" "}
             {machineState !== null
-              ? prettyNumbers(machineState.maticBalanceOnPolygon)
+              ? prettyNumbers(machineState.polBalanceOnPolygon)
               : "--"}
             &nbsp;|&nbsp;Last Updated:{" "}
             {machineState === null
               ? "--"
               : new Date(machineState.rateLastUpdatedTimestamp).toDateString() +
-                " - " +
-                new Date().toISOString().substring(11, 19)}
+              " - " +
+              new Date().toISOString().substring(11, 19)}
           </Typography>
         )}
       </Grid>
@@ -360,13 +408,13 @@ function App() {
                 // machineState === null
               }
               variant="contained"
-        color="error"
+              color="error"
               onClick={() => {
                 setPageState(PageState.BUYING_BITCOIN_SCAN_ADDRESS);
               }}
             >
               <CurrencyBitcoinIcon style={{ fontSize: "50px" }} />
-              BITCOIN <br />
+              ⚡︎ COINOS BTC ⚡︎ <br />
             </StackVerticalButton>
             &nbsp;&nbsp;
             <StackVerticalButton
@@ -377,15 +425,90 @@ function App() {
                 // machineState === null
               }
               variant="contained"
-          color="secondary"
+              color="info"
               onClick={() => {
-                setPageState(PageState.BUYING_MATIC_SCAN_ADDRESS);
+                setPageState(PageState.BUYING_POL_SCAN_ADDRESS);
               }}
             >
-              <HexagonIcon style={{ fontSize: "50px" }} />
-              MATIC <br />
+              {/* <HexagonIcon style={{ fontSize: "50px" }} /> */}
+              <img src={process.env.PUBLIC_URL + '/logos/polygon_logo.svg'} height={50} />
+              POL <br />
             </StackVerticalButton>
             &nbsp;&nbsp;
+            <StackVerticalButton
+              disabled={undefined
+                // (machineState !== null &&
+                //   (machineState.isDepositInProgress ||
+                //     machineState.isEmptyingInProgress)) ||
+                // machineState === null
+              }
+              variant="contained"
+              color="info"
+              onClick={() => {
+                setPageState(PageState.BUYING_L2_ETH_SCAN_ADDRESS);
+                setNextPageState({
+                  state: PageState.BUYING_L2_ETH_INSERT_BILL, data: {
+                    endDeposit: finalizeDepositAndSendL2Eth,
+                    endDepositEndpoint: `${ATM_BACKEND_URL}/deposit/end/arbitrum`,
+                    chain: { name: "Arbitrum" }
+                  }
+                })
+              }}
+            >
+              <img src={process.env.PUBLIC_URL + '/logos/arbitrum_logo.svg'} height={50} />
+              ARB ETH <br />
+            </StackVerticalButton>
+            &nbsp;&nbsp;
+            <StackVerticalButton
+              disabled={undefined
+                // (machineState !== null &&
+                //   (machineState.isDepositInProgress ||
+                //     machineState.isEmptyingInProgress)) ||
+                // machineState === null
+              }
+              variant="contained"
+              color="info"
+              onClick={() => {
+                setPageState(PageState.BUYING_L2_ETH_SCAN_ADDRESS);
+                setNextPageState({
+                  state: PageState.BUYING_L2_ETH_INSERT_BILL, data: {
+                    endDeposit: finalizeDepositAndSendL2Eth,
+                    endDepositEndpoint: `${ATM_BACKEND_URL}/deposit/end/optimism`,
+                    chain: { name: "Optimism" }
+                  }
+                });
+              }}
+            >
+              <img src={process.env.PUBLIC_URL + '/logos/optimism_logo.svg'} height={50} />
+              OP ETH <br />
+            </StackVerticalButton>
+            &nbsp;&nbsp;
+            <StackVerticalButton
+              disabled={undefined
+                // (machineState !== null &&
+                //   (machineState.isDepositInProgress ||
+                //     machineState.isEmptyingInProgress)) ||
+                // machineState === null
+              }
+              variant="contained"
+              color="info"
+              onClick={() => {
+                setPageState(PageState.BUYING_L2_ETH_SCAN_ADDRESS);
+                setNextPageState({
+                  state: PageState.BUYING_L2_ETH_INSERT_BILL, data: {
+                    endDeposit: finalizeDepositAndSendL2Eth,
+                    endDepositEndpoint: `${ATM_BACKEND_URL}/deposit/end/base`,
+                    chain: { name: "Base" }
+                  }
+                });
+              }}
+            >
+              <img src={process.env.PUBLIC_URL + '/logos/base_logo.svg'} width="40" height="40" />
+              BASE ETH <br />
+            </StackVerticalButton>
+
+            &nbsp;&nbsp;
+
             <StackVerticalButton
               variant="contained"
               onClick={() => {
@@ -505,12 +628,12 @@ function App() {
                 {machineState.currentDeposit <= 0
                   ? new Date(fobUser.expire_timestamp * 1000).toLocaleString()
                   : new Date(
-                      ((fobUser.expire_timestamp < epochNowInSeconds()
-                        ? epochNowInSeconds()
-                        : fobUser.expire_timestamp) +
-                        machineState.curMembershipTimeExtend) *
-                        1000
-                    ).toLocaleString()}
+                    ((fobUser.expire_timestamp < epochNowInSeconds()
+                      ? epochNowInSeconds()
+                      : fobUser.expire_timestamp) +
+                      machineState.curMembershipTimeExtend) *
+                    1000
+                  ).toLocaleString()}
               </Typography>
               <br />
               <Button
@@ -574,11 +697,11 @@ function App() {
                   }
                 }}
               />
-          <div>Don't have a QR? Type a lightning address into the coinos.io/send page and press the QR button to generate a QR for any address</div>
+              <div>Don't have a QR? Type a lightning address into the coinos.io/send page and press the QR button to generate a QR for any address</div>
             </div>
           </>
         )}
-        {pageState === PageState.BUYING_MATIC_SCAN_ADDRESS && (
+        {pageState === PageState.BUYING_POL_SCAN_ADDRESS && (
           <>
             <div style={{ width: "400px", margin: "auto" }}>
               <Typography variant="h6">
@@ -596,7 +719,7 @@ function App() {
                     if (txt.startsWith("ethereum:")) {
                       try {
                         txt = txt.replace("ethereum:", "").slice(0, 42);
-                      } catch (e) {}
+                      } catch (e) { }
                     }
 
                     // Is an address
@@ -614,6 +737,61 @@ function App() {
             </div>
           </>
         )}
+        {pageState === PageState.BUYING_L2_ETH_SCAN_ADDRESS && (
+          <>
+            <div style={{ width: "400px", margin: "auto" }}>
+              <Typography variant="h6">
+                SCANNING ETHEREUM ADDRESS QR CODE ({nextPageState.data?.chain ? nextPageState.data?.chain.name : "l2 chain"})
+              </Typography>
+              <QrReader
+                ViewFinder={ViewFinder}
+                videoId="video"
+                scanDelay={500}
+                constraints={{ facingMode: "user" }}
+                onResult={(result, error) => {
+                  if (!!result) {
+                    let txt = result.getText();
+
+                    if (txt.startsWith("ethereum:")) {
+                      try {
+                        txt = txt.replace("ethereum:", "").slice(0, 42);
+                      } catch (e) { }
+                    }
+
+                    // Is an address
+                    if (txt.startsWith("0x") && txt.length === 42) {
+                      setQrCodeData(txt);
+                      setNextPageState({ state: PageState.BUYING_L2_ETH_INSERT_BILL, data: nextPageState.data })
+                      setIsConfirmAddressDialogOpen(true);
+                    }
+                  }
+
+                  if (!!error) {
+                    console.info("qr-code", error);
+                  }
+                }}
+              />
+              {/* todo: custom remove the button component after testing*/}
+
+              <StackVerticalButton
+                style={{ marginTop: "10px", height: "50px", fontSize: "10px" }}
+                variant="contained"
+                onClick={() => {
+                  const txt = "0xdcFec2D0A98160ed5E4D10b6e1e21469d0B5e609"
+                  setQrCodeData(txt);
+
+                  setNextPageState({ state: PageState.BUYING_L2_ETH_INSERT_BILL, data: nextPageState.data })
+                  setIsConfirmAddressDialogOpen(true);
+                }}
+                color="success"
+              >
+                {/* <ThumbUpOffAltIcon style={{ fontSize: "50px" }} /> */}
+                Use hardcoded dctrl address (0xdc)
+              </StackVerticalButton>
+            </div>
+          </>
+        )}
+
         {pageState === PageState.BUYING_BITCOIN_INSERT_BILL && (
           <>
             <Typography variant="h5">FEED CAD BILLS INTO MACHINE</Typography>
@@ -646,7 +824,7 @@ function App() {
             </StackVerticalButton>
           </>
         )}
-        {pageState === PageState.BUYING_MATIC_INSERT_BILL && (
+        {pageState === PageState.BUYING_L2_ETH_INSERT_BILL && (
           <>
             <Typography variant="h5">FEED CAD BILLS INTO MACHINE</Typography>
             <Typography variant="subtitle1">
@@ -660,9 +838,9 @@ function App() {
                 : machineState.currentDeposit.toString()}
             </Typography>
             <Typography variant="h5">
-              MATIC TO RECEIVE: ~
+              {nextPageState?.data?.chain ? `${nextPageState.data.chain.name} ETH` : "ETH"} TO RECEIVE: ~
               {machineState !== null
-                ? prettyNumbers(machineState.currentMaticToRecv)
+                ? prettyNumbers(machineState.currentL2EthToRecv)
                 : "--"}
             </Typography>
             <StackVerticalButton
@@ -678,41 +856,75 @@ function App() {
             </StackVerticalButton>
           </>
         )}
-        {pageState === PageState.BUYING_MATIC_SENDING_TX && (
+
+        {pageState === PageState.BUYING_POL_INSERT_BILL && (
+          <>
+            <Typography variant="h5">FEED CAD BILLS INTO MACHINE</Typography>
+            <Typography variant="subtitle1">
+              Recipient address: {recipientAddress || "--"}
+            </Typography>
+            <div style={{ marginTop: "15px" }} />
+            <Typography variant="h5">
+              INSERTED CAD: $
+              {machineState === null
+                ? "--"
+                : machineState.currentDeposit.toString()}
+            </Typography>
+            <Typography variant="h5">
+              POL TO RECEIVE: ~
+              {machineState !== null
+                ? prettyNumbers(machineState.currentPolToRecv)
+                : "--"}
+            </Typography>
+            <StackVerticalButton
+              style={{ marginTop: "20px", height: "125px" }}
+              variant="contained"
+              onClick={() => {
+                setIsDoneDepositingOpen(true);
+              }}
+              color="success"
+            >
+              <ThumbUpOffAltIcon style={{ fontSize: "50px" }} />
+              DONE
+            </StackVerticalButton>
+          </>
+        )}
+        {pageState === PageState.BUYING_POL_SENDING_TX && (
           <>
             <Typography variant="h5">
-              CONFIRMING DEPOSIT AND SENDING MATIC...
+              CONFIRMING DEPOSIT AND SENDING POL...
             </Typography>
             <CircularProgress />
           </>
         )}
         {pageState === PageState.BUYING_BITCOIN_TX_RECEIPT && (
           <>
-          <div style={{maxWidth: "400px", wordBreak: "break-all"}}>
-            <Typography variant="h5">BITCOIN SENT</Typography>
-            <Typography variant="subtitle1">
-              Transaction Hash:{" "}
-              {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
-          <br /><br />
-            </Typography>
-            <Typography variant="subtitle1">
-              Deposited CAD:{" "}
-              {finishDepositResp !== null
-                ? prettyNumbers(finishDepositResp.totalDepositCAD)
-                : "--"}
-            </Typography>
-            <Typography variant="subtitle1">
-              Received BITCOIN:{" "}
-              {finishDepositResp !== null
-                ? prettyNumbers(finishDepositResp.totalMaticToRecv)
-                : "--"}
-            </Typography>
-          </div>
+            <div style={{ maxWidth: "400px", wordBreak: "break-all" }}>
+              <Typography variant="h5">BITCOIN SENT</Typography>
+              <Typography variant="subtitle1">
+                Transaction Hash:{" "}
+                {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
+                <br /><br />
+              </Typography>
+              <Typography variant="subtitle1">
+                Deposited CAD:{" "}
+                {finishDepositResp !== null
+                  ? prettyNumbers(finishDepositResp.totalDepositCAD)
+                  : "--"}
+              </Typography>
+              <Typography variant="subtitle1">
+                Received BITCOIN:{" "}
+                {finishDepositResp !== null
+                  ? prettyNumbers(finishDepositResp.totalCryptoToRecv)
+                  : "--"}
+              </Typography>
+            </div>
           </>
         )}
-        {pageState === PageState.BUYING_MATIC_TX_RECEIPT && (
+
+        {pageState === PageState.BUYING_L2_ETH_TX_RECEIPT && (
           <>
-            <Typography variant="h5">MATIC SENT</Typography>
+            <Typography variant="h5">{nextPageState.data?.chain.name} ETH SENT</Typography>
             <Typography variant="subtitle1">
               Transaction Hash:{" "}
               {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
@@ -724,16 +936,42 @@ function App() {
                 : "--"}
             </Typography>
             <Typography variant="subtitle1">
-              Received MATIC:{" "}
+              Received ETH:{" "}
               {finishDepositResp !== null
-                ? prettyNumbers(finishDepositResp.totalMaticToRecv)
+                ? prettyNumbers(finishDepositResp.totalCryptoToRecv)
                 : "--"}
             </Typography>
-            <QRCode
-              value={`https://polygonscan.com/tx/${
-                finishDepositResp !== null ? finishDepositResp.txHash : "--"
-              }`}
-            />
+            {finishDepositResp?.explorerTx && (
+              <QRCode
+                value={finishDepositResp.explorerTx}
+              />)
+            }
+          </>
+        )}
+        {pageState === PageState.BUYING_POL_TX_RECEIPT && (
+          <>
+            <Typography variant="h5">POL SENT</Typography>
+            <Typography variant="subtitle1">
+              Transaction Hash:{" "}
+              {finishDepositResp !== null ? finishDepositResp.txHash : "--"}
+            </Typography>
+            <Typography variant="subtitle1">
+              Deposited CAD:{" "}
+              {finishDepositResp !== null
+                ? prettyNumbers(finishDepositResp.totalDepositCAD)
+                : "--"}
+            </Typography>
+            <Typography variant="subtitle1">
+              Received POL:{" "}
+              {finishDepositResp !== null
+                ? prettyNumbers(finishDepositResp.totalCryptoToRecv)
+                : "--"}
+            </Typography>
+            {finishDepositResp?.explorerTx && (
+              <QRCode
+                value={finishDepositResp.explorerTx}
+              />)
+            }
           </>
         )}
       </Grid>
