@@ -313,8 +313,6 @@ function App() {
             nextPageState.data.endDeposit(recipientAddress, nextPageState.data.endDepositEndpoint);
           } else {
             finalizeDepositAndSendPol();
-            // todo: remove later if works
-            // setPageState(PageState.BUYING_POL_SENDING_TX);
           }
           setIsDoneDepositingOpen(false);
         }}
