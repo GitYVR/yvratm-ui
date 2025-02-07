@@ -1,6 +1,6 @@
 # YVRATM UI
 
-UI for on boarding people to Matic network via cash
+UI for on boarding people to Pol network via cash
 
 ```bash
 yarn build
