@@ -15,7 +15,6 @@ import { epochNowInSeconds, prettyNumbers } from "./common/utils";
 
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CurrencyBitcoinIcon from "@mui/icons-material/CurrencyBitcoin";
-import HexagonIcon from "@mui/icons-material/Hexagon";
 import CancelIcon from "@mui/icons-material/Cancel";
 import ThumbUpOffAltIcon from "@mui/icons-material/ThumbUpOffAlt";
 import AirIcon from "@mui/icons-material/Air";
@@ -314,8 +313,6 @@ function App() {
             nextPageState.data.endDeposit(recipientAddress, nextPageState.data.endDepositEndpoint);
           } else {
             finalizeDepositAndSendPol();
-            // todo: remove later if works
-            // setPageState(PageState.BUYING_POL_SENDING_TX);
           }
           setIsDoneDepositingOpen(false);
         }}
@@ -771,23 +768,7 @@ function App() {
                   }
                 }}
               />
-              {/* todo: custom remove the button component after testing*/}
 
-              <StackVerticalButton
-                style={{ marginTop: "10px", height: "50px", fontSize: "10px" }}
-                variant="contained"
-                onClick={() => {
-                  const txt = "0xdcFec2D0A98160ed5E4D10b6e1e21469d0B5e609"
-                  setQrCodeData(txt);
-
-                  setNextPageState({ state: PageState.BUYING_L2_ETH_INSERT_BILL, data: nextPageState.data })
-                  setIsConfirmAddressDialogOpen(true);
-                }}
-                color="success"
-              >
-                {/* <ThumbUpOffAltIcon style={{ fontSize: "50px" }} /> */}
-                Use hardcoded dctrl address (0xdc)
-              </StackVerticalButton>
             </div>
           </>
         )}
@@ -893,6 +874,14 @@ function App() {
           <>
             <Typography variant="h5">
               CONFIRMING DEPOSIT AND SENDING POL...
+            </Typography>
+            <CircularProgress />
+          </>
+        )}
+        {pageState === PageState.BUYING_L2_ETH_SENDING_TX && (
+          <>
+            <Typography variant="h5">
+              CONFIRMING DEPOSIT AND SENDING {nextPageState.data?.chain ? `${nextPageState.data?.chain.name} ETH` : "ETH"}...
             </Typography>
             <CircularProgress />
           </>
